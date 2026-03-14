@@ -1,0 +1,19 @@
+[project]
+name = "quantum-project"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "numpy>=2.0.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["backend*", "simulator*", "algorithms*"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
