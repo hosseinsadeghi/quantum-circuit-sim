@@ -1,0 +1,19 @@
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Install uv
+RUN pip install uv
+
+# Install Python dependencies from lockfile (layer-cached)
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
+
+# Copy application code
+COPY backend/ backend/
+COPY simulator/ simulator/
+COPY algorithms/ algorithms/
+
+EXPOSE 8001
+
+CMD ["uv", "run", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8001"]

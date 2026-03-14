@@ -6,12 +6,14 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const PYTHON_API_URL = process.env.PYTHON_API_URL || 'http://localhost:8001';
 
-// Proxy /api/* to Python FastAPI backend
+// Proxy /api/* to Python FastAPI backend.
+// Mounted at root (not '/api') so Express does not strip the prefix from req.url
+// before http-proxy-middleware forwards it. pathFilter handles the routing.
 app.use(
-  '/api',
   createProxyMiddleware({
     target: PYTHON_API_URL,
     changeOrigin: true,
+    pathFilter: '/api/**',
     on: {
       error: (err, req, res) => {
         console.error('Proxy error:', err.message);
