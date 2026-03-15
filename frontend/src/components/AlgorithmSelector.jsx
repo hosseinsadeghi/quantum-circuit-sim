@@ -29,7 +29,7 @@ export default function AlgorithmSelector() {
   return (
     <div className="card">
       <div className="card-title">Algorithm</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '42vh', overflowY: 'auto', paddingRight: '4px' }}>
         {categories.map((cat) => (
           <div key={cat}>
             <div style={{

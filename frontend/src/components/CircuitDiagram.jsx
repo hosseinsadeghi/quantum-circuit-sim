@@ -3,9 +3,14 @@ import * as d3 from 'd3';
 import { useSimulationContext } from '../context/SimulationContext.jsx';
 
 const QUBIT_HEIGHT = 50;
-const COL_WIDTH = 70;
+const COL_WIDTH = 80;
 const MARGIN = { top: 30, right: 20, bottom: 20, left: 60 };
-const GATE_SIZE = 30;
+const GATE_SIZE = 38;
+
+// Gates that need a wider box because their label is long
+const WIDE_GATES = new Set(['Oracle', 'Diffusion', 'Measure', 'Reset', 'Barrier']);
+const GATE_W = (name) => WIDE_GATES.has(name) ? 58 : GATE_SIZE;
+const GATE_LABEL = (name) => name.length > 9 ? name.slice(0, 8) + '…' : name;
 
 const GATE_COLORS = {
   H: '#7c3aed',
@@ -140,11 +145,12 @@ export default function CircuitDiagram() {
           g.append('line').attr('x1', x).attr('x2', x).attr('y1', y - 12).attr('y2', y + 12)
             .attr('stroke', color).attr('stroke-width', 2);
         } else {
-          // Box gate
-          const displayName = gate.name.length > 6 ? gate.name.slice(0, 5) + '…' : gate.name;
+          // Box gate — width adapts to label length
+          const gw = GATE_W(gate.name);
+          const displayName = GATE_LABEL(gate.name);
           g.append('rect')
-            .attr('x', x - GATE_SIZE / 2).attr('y', y - GATE_SIZE / 2)
-            .attr('width', GATE_SIZE).attr('height', GATE_SIZE)
+            .attr('x', x - gw / 2).attr('y', y - GATE_SIZE / 2)
+            .attr('width', gw).attr('height', GATE_SIZE)
             .attr('fill', color + (isActive ? 'ff' : '88'))
             .attr('stroke', isActive ? '#fff' : color)
             .attr('stroke-width', isActive ? 2 : 1)
