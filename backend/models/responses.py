@@ -7,6 +7,13 @@ class StateVectorData(BaseModel):
     imag: List[float]
 
 
+class ObservablesData(BaseModel):
+    bloch_vectors: List[List[float]]   # [[x,y,z], ...] per qubit
+    z_expectations: List[float]
+    entanglement_entropy: float
+    purity: float
+
+
 class SimulationStep(BaseModel):
     step_index: int
     label: str
@@ -15,6 +22,7 @@ class SimulationStep(BaseModel):
     state_vector: StateVectorData
     probabilities: List[float]
     basis_labels: List[str]
+    observables: Optional[ObservablesData] = None
 
 
 class MeasurementResult(BaseModel):
@@ -27,6 +35,7 @@ class CircuitGate(BaseModel):
     qubit: int
     name: str
     step_index: int
+    classical_control: Optional[Dict[str, Any]] = None
 
 
 class CircuitColumn(BaseModel):
@@ -53,6 +62,7 @@ class AlgorithmInfo(BaseModel):
     name: str
     description: str
     parameter_schema: Dict[str, Any]
+    category: str = "general"
 
 
 class AlgorithmsResponse(BaseModel):
@@ -62,3 +72,17 @@ class AlgorithmsResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     version: str
+
+
+# Sweep response
+class SweepPoint(BaseModel):
+    parameter_value: Any
+    most_likely_outcome: str
+    probabilities: List[float]
+    basis_labels: List[str]
+
+
+class SweepResponse(BaseModel):
+    algorithm: str
+    sweep_parameter: str
+    points: List[SweepPoint]

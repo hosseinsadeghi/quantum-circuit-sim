@@ -12,6 +12,9 @@ export function SimulationProvider({ children }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showPhaseWheel, setShowPhaseWheel] = useState(false);
+  const [showObservables, setShowObservables] = useState(false);
+  const [mode, setMode] = useState('statevector');
+  const [noiseConfig, setNoiseConfig] = useState(null);
 
   const loadAlgorithms = useCallback(async () => {
     try {
@@ -39,7 +42,12 @@ export function SimulationProvider({ children }) {
     setLoading(true);
     setError(null);
     try {
-      const result = await runSimulation(selectedAlgorithm.algorithm_id, parameters);
+      const result = await runSimulation(
+        selectedAlgorithm.algorithm_id,
+        parameters,
+        mode,
+        noiseConfig,
+      );
       setTrace(result);
       setCurrentStep(0);
     } catch (e) {
@@ -47,7 +55,7 @@ export function SimulationProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [selectedAlgorithm, parameters]);
+  }, [selectedAlgorithm, parameters, mode, noiseConfig]);
 
   const value = {
     algorithms,
@@ -61,6 +69,12 @@ export function SimulationProvider({ children }) {
     error,
     showPhaseWheel,
     setShowPhaseWheel,
+    showObservables,
+    setShowObservables,
+    mode,
+    setMode,
+    noiseConfig,
+    setNoiseConfig,
     loadAlgorithms,
     selectAlgorithm,
     simulate,
@@ -81,6 +95,7 @@ function getDefaultParameters(schema) {
   for (const [key, def] of Object.entries(schema.properties)) {
     if (def.default !== undefined) defaults[key] = def.default;
     else if (def.type === 'integer') defaults[key] = def.minimum ?? 1;
+    else if (def.type === 'number') defaults[key] = def.minimum ?? 0;
     else if (def.type === 'string' && def.enum) defaults[key] = def.enum[0];
     else if (def.type === 'string') defaults[key] = '';
   }

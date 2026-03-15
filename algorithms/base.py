@@ -1,23 +1,15 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
 class Algorithm(ABC):
-    @property
-    @abstractmethod
-    def algorithm_id(self) -> str: ...
-
-    @property
-    @abstractmethod
-    def name(self) -> str: ...
-
-    @property
-    @abstractmethod
-    def description(self) -> str: ...
-
-    @property
-    @abstractmethod
-    def parameter_schema(self) -> Dict[str, Any]: ...
+    algorithm_id: str
+    name: str
+    description: str
+    parameter_schema: Dict[str, Any]
+    category: str = "general"
 
     @abstractmethod
-    def run(self, parameters: Dict[str, Any]) -> Dict[str, Any]: ...
+    def run(self, parameters: Dict[str, Any], mode: str = "statevector",
+            noise_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        ...

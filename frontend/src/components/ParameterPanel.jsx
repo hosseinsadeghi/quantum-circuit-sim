@@ -45,6 +45,16 @@ export default function ParameterPanel() {
                   onChange={(e) => handleChange(key, parseInt(e.target.value, 10))}
                   style={inputStyle}
                 />
+              ) : def.type === 'number' ? (
+                <input
+                  type="number"
+                  value={parameters[key] ?? def.default ?? ''}
+                  min={def.minimum}
+                  max={def.maximum}
+                  step="0.01"
+                  onChange={(e) => handleChange(key, parseFloat(e.target.value))}
+                  style={inputStyle}
+                />
               ) : (
                 <input
                   type="text"
