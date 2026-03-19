@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import './App.css';
 import { SimulationProvider, useSimulationContext } from './context/SimulationContext.jsx';
-import { isDemoMode } from './api/client.js';
 import AlgorithmSelector from './components/AlgorithmSelector.jsx';
 import ParameterPanel from './components/ParameterPanel.jsx';
 import NoisePanel from './components/NoisePanel.jsx';
@@ -18,13 +17,12 @@ function AppContent() {
     error, trace,
     showPhaseWheel, setShowPhaseWheel,
     showObservables, setShowObservables,
+    demoMode,
     loadAlgorithms,
   } = useSimulationContext();
 
-  const [demoMode, setDemoMode] = useState(false);
-
   useEffect(() => {
-    loadAlgorithms().then(() => setDemoMode(isDemoMode()));
+    loadAlgorithms();
   }, []);
 
   return (

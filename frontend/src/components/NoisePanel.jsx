@@ -22,7 +22,18 @@ const selectStyle = {
 };
 
 export default function NoisePanel() {
-  const { mode, setMode, noiseConfig, setNoiseConfig } = useSimulationContext();
+  const { mode, setMode, noiseConfig, setNoiseConfig, demoMode } = useSimulationContext();
+
+  if (demoMode) {
+    return (
+      <div className="card">
+        <div className="card-title">Noise & Mode</div>
+        <p style={{ fontSize: '0.8rem', color: '#718096' }}>
+          Noise configuration requires the backend. Run locally for full control.
+        </p>
+      </div>
+    );
+  }
 
   const channelType = noiseConfig?.gate_noise?.default?.type ?? 'none';
   const channelParam = noiseConfig?.gate_noise?.default

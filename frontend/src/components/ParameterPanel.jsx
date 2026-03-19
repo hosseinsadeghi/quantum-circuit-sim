@@ -1,7 +1,7 @@
 import { useSimulationContext } from '../context/SimulationContext.jsx';
 
 export default function ParameterPanel() {
-  const { selectedAlgorithm, parameters, setParameters, simulate, loading } = useSimulationContext();
+  const { selectedAlgorithm, parameters, setParameters, simulate, loading, demoMode } = useSimulationContext();
 
   if (!selectedAlgorithm) return null;
 
@@ -26,11 +26,12 @@ export default function ParameterPanel() {
               {def.enum ? (
                 <select
                   value={parameters[key] ?? def.default ?? ''}
+                  disabled={demoMode}
                   onChange={(e) => {
                     const raw = e.target.value;
                     handleChange(key, def.type === 'integer' ? parseInt(raw, 10) : raw);
                   }}
-                  style={inputStyle}
+                  style={{ ...inputStyle, ...(demoMode ? disabledStyle : {}) }}
                 >
                   {def.enum.map((opt) => (
                     <option key={opt} value={opt}>{opt}</option>
@@ -42,8 +43,9 @@ export default function ParameterPanel() {
                   value={parameters[key] ?? def.default ?? ''}
                   min={def.minimum}
                   max={def.maximum}
+                  disabled={demoMode}
                   onChange={(e) => handleChange(key, parseInt(e.target.value, 10))}
-                  style={inputStyle}
+                  style={{ ...inputStyle, ...(demoMode ? disabledStyle : {}) }}
                 />
               ) : def.type === 'number' ? (
                 <input
@@ -52,16 +54,18 @@ export default function ParameterPanel() {
                   min={def.minimum}
                   max={def.maximum}
                   step="0.01"
+                  disabled={demoMode}
                   onChange={(e) => handleChange(key, parseFloat(e.target.value))}
-                  style={inputStyle}
+                  style={{ ...inputStyle, ...(demoMode ? disabledStyle : {}) }}
                 />
               ) : (
                 <input
                   type="text"
                   value={parameters[key] ?? ''}
+                  disabled={demoMode}
                   onChange={(e) => handleChange(key, e.target.value)}
                   placeholder={def.pattern ? `Pattern: ${def.pattern}` : ''}
-                  style={inputStyle}
+                  style={{ ...inputStyle, ...(demoMode ? disabledStyle : {}) }}
                 />
               )}
             </div>
@@ -79,7 +83,7 @@ export default function ParameterPanel() {
         disabled={loading}
         style={{ width: '100%' }}
       >
-        {loading ? 'Simulating...' : 'Run Simulation'}
+        {loading ? 'Simulating...' : demoMode ? 'Run Demo' : 'Run Simulation'}
       </button>
     </div>
   );
@@ -93,4 +97,9 @@ const inputStyle = {
   borderRadius: '5px',
   color: '#e2e8f0',
   fontSize: '0.9rem',
+};
+
+const disabledStyle = {
+  opacity: 0.5,
+  cursor: 'not-allowed',
 };

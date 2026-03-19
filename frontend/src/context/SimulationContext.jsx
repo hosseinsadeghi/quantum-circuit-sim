@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback } from 'react';
-import { fetchAlgorithms, runSimulation } from '../api/client.js';
+import { fetchAlgorithms, runSimulation, isDemoMode } from '../api/client.js';
 
 const SimulationContext = createContext(null);
 
@@ -15,10 +15,12 @@ export function SimulationProvider({ children }) {
   const [showObservables, setShowObservables] = useState(false);
   const [mode, setMode] = useState('statevector');
   const [noiseConfig, setNoiseConfig] = useState(null);
+  const [demoMode, setDemoMode] = useState(false);
 
   const loadAlgorithms = useCallback(async () => {
     try {
       const data = await fetchAlgorithms();
+      setDemoMode(isDemoMode());
       setAlgorithms(data.algorithms);
       if (data.algorithms.length > 0) {
         setSelectedAlgorithm(data.algorithms[0]);
@@ -75,6 +77,7 @@ export function SimulationProvider({ children }) {
     setMode,
     noiseConfig,
     setNoiseConfig,
+    demoMode,
     loadAlgorithms,
     selectAlgorithm,
     simulate,
