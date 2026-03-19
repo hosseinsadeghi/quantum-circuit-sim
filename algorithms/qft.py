@@ -27,9 +27,9 @@ class QFTAlgorithm(Algorithm):
             "n_qubits": {
                 "type": "integer",
                 "minimum": 2,
-                "maximum": 5,
+                "maximum": 14,
                 "default": 3,
-                "description": "Number of qubits (2–5)",
+                "description": "Number of qubits (2–14)",
             },
             "input_state": {
                 "type": "string",

@@ -26,8 +26,9 @@ class BernsteinVaziraniAlgorithm(Algorithm):
             "secret_string": {
                 "type": "string",
                 "pattern": "^[01]+$",
+                "maxLength": 14,
                 "default": "101",
-                "description": "The hidden bitstring s (e.g. '101'). Length determines qubit count.",
+                "description": "The hidden bitstring s (e.g. '101'). Length determines qubit count (max 14).",
             },
         },
         "required": ["secret_string"],

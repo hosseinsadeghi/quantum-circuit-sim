@@ -28,9 +28,9 @@ class DeutschJozsaAlgorithm(Algorithm):
             "n_qubits": {
                 "type": "integer",
                 "minimum": 1,
-                "maximum": 4,
+                "maximum": 12,
                 "default": 3,
-                "description": "Number of input qubits (1–4)",
+                "description": "Number of input qubits (1–12)",
             },
             "oracle_type": {
                 "type": "string",

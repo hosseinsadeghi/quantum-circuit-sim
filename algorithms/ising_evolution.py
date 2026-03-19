@@ -41,9 +41,9 @@ class IsingEvolutionAlgorithm(Algorithm):
             "n_qubits": {
                 "type": "integer",
                 "minimum": 2,
-                "maximum": 4,
+                "maximum": 10,
                 "default": 3,
-                "description": "Number of spins (2–4)",
+                "description": "Number of spins (2–10)",
             },
             "n_steps": {
                 "type": "integer",

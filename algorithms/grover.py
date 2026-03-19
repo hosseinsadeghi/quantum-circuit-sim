@@ -20,9 +20,9 @@ class GroverAlgorithm(Algorithm):
             "n_qubits": {
                 "type": "integer",
                 "minimum": 2,
-                "maximum": 4,
+                "maximum": 12,
                 "default": 3,
-                "description": "Number of qubits (2–4)",
+                "description": "Number of qubits (2–12)",
             },
             "target_state": {
                 "type": "string",

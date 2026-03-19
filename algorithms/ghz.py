@@ -26,9 +26,9 @@ class GHZAlgorithm(Algorithm):
             "n_qubits": {
                 "type": "integer",
                 "minimum": 2,
-                "maximum": 6,
+                "maximum": 16,
                 "default": 3,
-                "description": "Number of qubits (2–6)",
+                "description": "Number of qubits (2–16)",
             },
         },
         "required": ["n_qubits"],
