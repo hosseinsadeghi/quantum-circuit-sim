@@ -1,12 +1,33 @@
+import fallbackData from './algorithms.json';
+
 const BASE = '/api';
 
+let backendAvailable = null;
+
+async function isBackendAvailable() {
+  if (backendAvailable !== null) return backendAvailable;
+  try {
+    const res = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(2000) });
+    backendAvailable = res.ok;
+  } catch {
+    backendAvailable = false;
+  }
+  return backendAvailable;
+}
+
 export async function fetchAlgorithms() {
-  const res = await fetch(`${BASE}/algorithms`);
-  if (!res.ok) throw new Error(`Failed to fetch algorithms: ${res.statusText}`);
-  return res.json();
+  if (await isBackendAvailable()) {
+    const res = await fetch(`${BASE}/algorithms`);
+    if (!res.ok) throw new Error(`Failed to fetch algorithms: ${res.statusText}`);
+    return res.json();
+  }
+  return fallbackData;
 }
 
 export async function runSimulation(algorithmId, parameters, mode = 'statevector', noiseConfig = null) {
+  if (!(await isBackendAvailable())) {
+    throw new Error('Simulation requires the backend server. Run locally with: npm start');
+  }
   const res = await fetch(`${BASE}/simulate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -25,6 +46,9 @@ export async function runSimulation(algorithmId, parameters, mode = 'statevector
 }
 
 export async function runSweep(algorithmId, fixedParameters, sweepParameter, sweepValues, mode = 'statevector', noiseConfig = null) {
+  if (!(await isBackendAvailable())) {
+    throw new Error('Sweep requires the backend server. Run locally with: npm start');
+  }
   const res = await fetch(`${BASE}/sweep`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -45,6 +69,5 @@ export async function runSweep(algorithmId, fixedParameters, sweepParameter, swe
 }
 
 export async function checkHealth() {
-  const res = await fetch(`${BASE}/health`);
-  return res.ok;
+  return isBackendAvailable();
 }
