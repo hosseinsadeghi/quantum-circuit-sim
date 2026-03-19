@@ -28,6 +28,16 @@
   color: #718096;
 }
 
+.demo-banner {
+  grid-column: 1 / -1;
+  background: #2d1f5e;
+  border-bottom: 1px solid #7c3aed;
+  color: #c4b5fd;
+  padding: 8px 24px;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
 .sidebar {
   background: #1a1f2e;
   border-right: 1px solid #2d3748;

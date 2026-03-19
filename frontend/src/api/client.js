@@ -1,4 +1,5 @@
 import fallbackData from './algorithms.json';
+import demoTraces from './demo-traces.json';
 
 const BASE = '/api';
 
@@ -15,6 +16,10 @@ async function isBackendAvailable() {
   return backendAvailable;
 }
 
+export function isDemoMode() {
+  return backendAvailable === false;
+}
+
 export async function fetchAlgorithms() {
   if (await isBackendAvailable()) {
     const res = await fetch(`${BASE}/algorithms`);
@@ -25,24 +30,28 @@ export async function fetchAlgorithms() {
 }
 
 export async function runSimulation(algorithmId, parameters, mode = 'statevector', noiseConfig = null) {
-  if (!(await isBackendAvailable())) {
-    throw new Error('Simulation requires the backend server. Run locally with: npm start');
+  if (await isBackendAvailable()) {
+    const res = await fetch(`${BASE}/simulate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        algorithm_id: algorithmId,
+        parameters,
+        mode,
+        noise_config: noiseConfig,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || res.statusText);
+    }
+    return res.json();
   }
-  const res = await fetch(`${BASE}/simulate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      algorithm_id: algorithmId,
-      parameters,
-      mode,
-      noise_config: noiseConfig,
-    }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || res.statusText);
-  }
-  return res.json();
+
+  // Demo mode: return pre-computed trace if available
+  const trace = demoTraces[algorithmId];
+  if (trace) return trace;
+  throw new Error('No demo data available for this algorithm. Run locally with: npm start');
 }
 
 export async function runSweep(algorithmId, fixedParameters, sweepParameter, sweepValues, mode = 'statevector', noiseConfig = null) {

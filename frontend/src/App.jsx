@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import './App.css';
 import { SimulationProvider, useSimulationContext } from './context/SimulationContext.jsx';
+import { isDemoMode } from './api/client.js';
 import AlgorithmSelector from './components/AlgorithmSelector.jsx';
 import ParameterPanel from './components/ParameterPanel.jsx';
 import NoisePanel from './components/NoisePanel.jsx';
@@ -20,8 +21,10 @@ function AppContent() {
     loadAlgorithms,
   } = useSimulationContext();
 
+  const [demoMode, setDemoMode] = useState(false);
+
   useEffect(() => {
-    loadAlgorithms();
+    loadAlgorithms().then(() => setDemoMode(isDemoMode()));
   }, []);
 
   return (
@@ -42,6 +45,12 @@ function AppContent() {
           </div>
         )}
       </header>
+
+      {demoMode && (
+        <div className="demo-banner">
+          Demo mode — showing pre-computed results. Clone the repo and run locally for full interactivity.
+        </div>
+      )}
 
       <aside className="sidebar">
         <AlgorithmSelector />
