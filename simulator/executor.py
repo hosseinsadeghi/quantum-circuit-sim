@@ -10,16 +10,31 @@ Both modes compute per-step observables when include_observables=True.
 from __future__ import annotations
 
 import numpy as np
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from simulator.circuit import (
-    Circuit, GateOp, TwoQubitGateOp, MeasureOp, ResetOp,
+    Circuit, GateOp, TwoQubitGateOp, ThreeQubitGateOp, MeasureOp, ResetOp,
     BarrierOp, ClassicalControlOp, PhaseOracleOp, DiffusionOp, Op,
 )
 from simulator.state_vector import StateVector
 from simulator.density_matrix import DensityMatrix
 from simulator.noise import NoiseModel
 from simulator.observables import compute_observables_from_sv, compute_observables_from_dm
+
+
+@dataclass
+class SnapshotConfig:
+    """Controls what data is captured in each simulation step snapshot.
+
+    Attributes:
+        include_state_vector: Whether to serialize full state vector/DM data.
+        include_observables: Whether to compute observables (Bloch, entropy, etc.).
+        observable_interval: Compute observables every N steps (1 = every step).
+    """
+    include_state_vector: bool = True
+    include_observables: bool = True
+    observable_interval: int = 1
 
 
 class ExecutionResult:
@@ -78,6 +93,7 @@ class Executor:
         noise_model: NoiseModel applied after each gate (density_matrix mode only)
         include_observables: if True, each step gets an "observables" sub-dict
         rng_seed: random seed for mid-circuit measurements
+        snapshot_config: fine-grained control over snapshot contents
     """
 
     def __init__(
@@ -86,13 +102,24 @@ class Executor:
         noise_model: Optional[NoiseModel] = None,
         include_observables: bool = True,
         rng_seed: Optional[int] = None,
+        snapshot_config: Optional[SnapshotConfig] = None,
     ):
         if mode not in ("statevector", "density_matrix"):
             raise ValueError(f"mode must be 'statevector' or 'density_matrix', got {mode!r}")
         self.mode = mode
         self.noise_model = noise_model
-        self.include_observables = include_observables
         self._rng = np.random.default_rng(rng_seed)
+
+        # Snapshot configuration: if provided, it takes precedence
+        if snapshot_config is not None:
+            self.snapshot_config = snapshot_config
+        else:
+            self.snapshot_config = SnapshotConfig(
+                include_state_vector=True,
+                include_observables=include_observables,
+            )
+        # Backward-compat alias
+        self.include_observables = self.snapshot_config.include_observables
 
         # Force density_matrix mode when noise is enabled
         if noise_model is not None and noise_model.is_noisy():
@@ -116,7 +143,10 @@ class Executor:
     def _run_sv(self, circuit: Circuit, clbits: List[int],
                 init_label: Optional[str]) -> ExecutionResult:
         n = circuit.n_qubits
-        sv = StateVector(n)
+        if circuit.initial_state is not None:
+            sv = StateVector.from_array(circuit.initial_state)
+        else:
+            sv = StateVector(n)
         steps: List[Dict] = []
         step_assignments: List[int] = []
 
@@ -220,22 +250,31 @@ class Executor:
             sv.apply_single_qubit_gate(op.matrix, op.qubit)
         elif isinstance(op, TwoQubitGateOp):
             sv.apply_two_qubit_gate(op.matrix, op.qubit1, op.qubit2)
+        elif isinstance(op, ThreeQubitGateOp):
+            sv.apply_three_qubit_gate(op.matrix, op.qubit1, op.qubit2, op.qubit3)
 
     def _sv_snapshot(self, sv: StateVector, step_index: int, label: str,
                      gate: Optional[str], qubits: List[int]) -> Dict:
-        step = {
+        cfg = self.snapshot_config
+        step: Dict[str, Any] = {
             "step_index": step_index,
             "label": label,
             "gate": gate,
             "qubits_affected": qubits,
-            "state_vector": {
-                "real": sv.state_real(),
-                "imag": sv.state_imag(),
-            },
             "probabilities": sv.probabilities_list(),
             "basis_labels": sv.basis_labels(),
         }
-        if self.include_observables:
+        if cfg.include_state_vector:
+            step["state_vector"] = {
+                "real": sv.state_real(),
+                "imag": sv.state_imag(),
+            }
+        else:
+            step["state_vector"] = {"real": [], "imag": []}
+        if cfg.include_observables and (
+            step_index % cfg.observable_interval == 0
+            or step_index == 0
+        ):
             step["observables"] = compute_observables_from_sv(sv)
         return step
 
@@ -270,7 +309,10 @@ class Executor:
     def _run_dm(self, circuit: Circuit, clbits: List[int],
                 init_label: Optional[str]) -> ExecutionResult:
         n = circuit.n_qubits
-        dm = DensityMatrix(n)
+        if circuit.initial_state is not None:
+            dm = DensityMatrix.from_statevector(circuit.initial_state)
+        else:
+            dm = DensityMatrix(n)
         steps: List[Dict] = []
 
         # Step 0: initial state
@@ -366,6 +408,8 @@ class Executor:
             dm.apply_single_qubit_gate(op.matrix, op.qubit)
         elif isinstance(op, TwoQubitGateOp):
             dm.apply_two_qubit_gate(op.matrix, op.qubit1, op.qubit2)
+        elif isinstance(op, ThreeQubitGateOp):
+            dm.apply_three_qubit_gate(op.matrix, op.qubit1, op.qubit2, op.qubit3)
 
     def _maybe_apply_noise(self, dm: DensityMatrix, op) -> None:
         if self.noise_model is None or not self.noise_model.is_noisy():
@@ -385,19 +429,26 @@ class Executor:
 
     def _dm_snapshot(self, dm: DensityMatrix, step_index: int, label: str,
                      gate: Optional[str], qubits: List[int]) -> Dict:
-        step = {
+        cfg = self.snapshot_config
+        step: Dict[str, Any] = {
             "step_index": step_index,
             "label": label,
             "gate": gate,
             "qubits_affected": qubits,
-            "state_vector": {
-                "real": dm.probabilities(),   # use probs for SV compat
-                "imag": [0.0] * dm.dim,
-            },
             "probabilities": dm.probabilities(),
             "basis_labels": dm.basis_labels(),
         }
-        if self.include_observables:
+        if cfg.include_state_vector:
+            step["state_vector"] = {
+                "real": dm.probabilities(),   # use probs for SV compat
+                "imag": [0.0] * dm.dim,
+            }
+        else:
+            step["state_vector"] = {"real": [], "imag": []}
+        if cfg.include_observables and (
+            step_index % cfg.observable_interval == 0
+            or step_index == 0
+        ):
             step["observables"] = compute_observables_from_dm(dm)
         return step
 
@@ -442,6 +493,8 @@ def _op_name(op) -> Optional[str]:
         return op.name
     if isinstance(op, TwoQubitGateOp):
         return op.name
+    if isinstance(op, ThreeQubitGateOp):
+        return op.name
     if isinstance(op, MeasureOp):
         return "Measure"
     if isinstance(op, ResetOp):
@@ -460,6 +513,8 @@ def _op_qubit_list(op, n_qubits: int) -> List[int]:
         return [op.qubit]
     if isinstance(op, TwoQubitGateOp):
         return [op.qubit1, op.qubit2]
+    if isinstance(op, ThreeQubitGateOp):
+        return [op.qubit1, op.qubit2, op.qubit3]
     if isinstance(op, MeasureOp):
         return [op.qubit]
     if isinstance(op, ResetOp):
@@ -476,6 +531,8 @@ def _op_qubit_list_raw(op) -> List[int]:
         return [op.qubit]
     if isinstance(op, TwoQubitGateOp):
         return [op.qubit1, op.qubit2]
+    if isinstance(op, ThreeQubitGateOp):
+        return [op.qubit1, op.qubit2, op.qubit3]
     if isinstance(op, ClassicalControlOp):
         return _op_qubit_list_raw(op.op)
     return []
