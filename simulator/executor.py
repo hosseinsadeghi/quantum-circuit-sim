@@ -105,6 +105,7 @@ class Executor:
         snapshot_config: Optional[SnapshotConfig] = None,
         optimize: bool = False,
         representation: str = "dense",
+        backend: str = "numpy",
     ):
         if mode not in ("statevector", "density_matrix"):
             raise ValueError(f"mode must be 'statevector' or 'density_matrix', got {mode!r}")
@@ -127,6 +128,7 @@ class Executor:
         self.include_observables = self.snapshot_config.include_observables
 
         self.optimize = optimize
+        self.backend_name = backend
 
         # Force density_matrix mode when noise is enabled
         if noise_model is not None and noise_model.is_noisy():
