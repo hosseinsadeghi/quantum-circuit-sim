@@ -36,17 +36,30 @@ class StateVector:
         gate_tensor = gate.reshape(2, 2, 2, 2)
         state = np.tensordot(gate_tensor, state, axes=[[2, 3], [qubit1, qubit2]])
         # After tensordot: axes [out1, out2, remaining...]
+        # target_axes[q] = position in tensordot output for qubit q
         remaining = [i for i in range(self.n_qubits) if i not in (qubit1, qubit2)]
-        # Build inverse permutation to put axes back
         target_axes = [None] * self.n_qubits
         target_axes[qubit1] = 0
         target_axes[qubit2] = 1
         for j, r in enumerate(remaining):
             target_axes[r] = j + 2
-        inverse_perm = [0] * self.n_qubits
-        for i, pos in enumerate(target_axes):
-            inverse_perm[pos] = i
-        state = np.transpose(state, inverse_perm)
+        state = np.transpose(state, target_axes)
+        self._state = state.reshape(self.dim)
+
+    def apply_three_qubit_gate(self, gate: np.ndarray, qubit1: int, qubit2: int, qubit3: int) -> None:
+        """Apply a three-qubit gate. gate is 8x8."""
+        state = self._state.reshape([2] * self.n_qubits)
+        gate_tensor = gate.reshape(2, 2, 2, 2, 2, 2)
+        state = np.tensordot(gate_tensor, state, axes=[[3, 4, 5], [qubit1, qubit2, qubit3]])
+        # After tensordot: axes [out1, out2, out3, remaining...]
+        remaining = [i for i in range(self.n_qubits) if i not in (qubit1, qubit2, qubit3)]
+        target_axes = [None] * self.n_qubits
+        target_axes[qubit1] = 0
+        target_axes[qubit2] = 1
+        target_axes[qubit3] = 2
+        for j, r in enumerate(remaining):
+            target_axes[r] = j + 3
+        state = np.transpose(state, target_axes)
         self._state = state.reshape(self.dim)
 
     def probabilities(self) -> np.ndarray:

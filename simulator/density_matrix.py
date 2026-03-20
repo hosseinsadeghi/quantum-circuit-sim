@@ -16,6 +16,51 @@ import numpy as np
 from typing import List, Optional, Tuple
 
 
+def _contract_gate_on_rho(gate_tensor: np.ndarray, rho: np.ndarray,
+                          qubits: List[int], n: int, k: int) -> np.ndarray:
+    """Apply k-qubit gate to density matrix via tensor contraction.
+
+    gate_tensor: (2,)*2k shaped gate (first k axes are outputs, last k are inputs)
+    rho: (2,)*2n shaped density matrix tensor
+    qubits: list of k qubit indices the gate acts on
+    n: total number of qubits
+    k: number of qubits the gate acts on
+
+    Returns rho after U rho U†.
+    """
+    in_axes = list(range(k, 2 * k))
+    remaining = [i for i in range(n) if i not in qubits]
+
+    # --- Contract gate with row axes ---
+    rho = np.tensordot(gate_tensor, rho, axes=[in_axes, qubits])
+    # Output: [gate_out_0..k-1, remaining_row..., col_0..col_{n-1}]
+    # Build permutation to restore [row_0..row_{n-1}, col_0..col_{n-1}]
+    perm1 = [0] * (2 * n)
+    for idx, q in enumerate(qubits):
+        perm1[q] = idx  # gate outputs go to their qubit positions
+    for j, r in enumerate(remaining):
+        perm1[r] = k + j  # remaining rows
+    for c in range(n):
+        perm1[n + c] = k + len(remaining) + c  # col axes unchanged
+    rho = np.transpose(rho, perm1)
+
+    # --- Contract gate* with col axes ---
+    col_targets = [q + n for q in qubits]
+    rho = np.tensordot(gate_tensor.conj(), rho, axes=[in_axes, col_targets])
+    # Output: [gate_out_0..k-1, row_0..row_{n-1}, remaining_col...]
+    # Build permutation: rows at positions k..k+n-1, gate outputs to col positions
+    perm2 = [0] * (2 * n)
+    for i in range(n):
+        perm2[i] = k + i  # row axes
+    for idx, q in enumerate(qubits):
+        perm2[n + q] = idx  # gate outputs go to col qubit positions
+    for j, r in enumerate(remaining):
+        perm2[n + r] = k + n + j  # remaining col axes
+    rho = np.transpose(rho, perm2)
+
+    return rho
+
+
 class DensityMatrix:
     """n-qubit density matrix, stored as (2^n x 2^n) complex128 array."""
 
@@ -68,39 +113,8 @@ class DensityMatrix:
         n = self.n_qubits
         G4 = gate.astype(np.complex128).reshape(2, 2, 2, 2)
         rho = self._rho.reshape([2] * (2 * n))
-
-        # Contract gate with row axes
-        rho = np.tensordot(G4, rho, axes=[[2, 3], [qubit1, qubit2]])
-        # After tensordot: axes [out1, out2, ...remaining row..., ...col...]
-        # Move out1, out2 back to qubit1, qubit2 positions
-        remaining_row = [i for i in range(n) if i not in (qubit1, qubit2)]
-        target = [None] * n
-        target[qubit1] = 0
-        target[qubit2] = 1
-        for j, r in enumerate(remaining_row):
-            target[r] = j + 2
-        inv = [0] * n
-        for i, pos in enumerate(target):
-            inv[pos] = i
-        # Current shape: (2, 2, <n-2 row axes>, <n col axes>)
-        # We need to reorder first n axes according to inv
-        full_perm = inv + list(range(n, 2 * n))
-        rho = np.transpose(rho, full_perm)
-
-        # Contract gate* with col axes
-        rho = np.tensordot(G4.conj(), rho, axes=[[2, 3], [qubit1 + n, qubit2 + n]])
-        remaining_col = [i for i in range(n) if i not in (qubit1, qubit2)]
-        target2 = [None] * n
-        target2[qubit1] = 0
-        target2[qubit2] = 1
-        for j, r in enumerate(remaining_col):
-            target2[r] = j + 2
-        inv2 = [0] * n
-        for i, pos in enumerate(target2):
-            inv2[pos] = i
-        full_perm2 = list(range(n)) + [x + n for x in inv2]
-        rho = np.transpose(rho, full_perm2)
-
+        qubits = [qubit1, qubit2]
+        rho = _contract_gate_on_rho(G4, rho, qubits, n, k=2)
         self._rho = rho.reshape(self.dim, self.dim)
 
     def apply_three_qubit_gate(self, gate: np.ndarray, qubit1: int, qubit2: int, qubit3: int) -> None:
@@ -108,38 +122,8 @@ class DensityMatrix:
         n = self.n_qubits
         G8 = gate.astype(np.complex128).reshape(2, 2, 2, 2, 2, 2)
         rho = self._rho.reshape([2] * (2 * n))
-
         qubits = [qubit1, qubit2, qubit3]
-
-        # Contract gate with row axes
-        rho = np.tensordot(G8, rho, axes=[[3, 4, 5], qubits])
-        remaining = [i for i in range(n) if i not in qubits]
-        target = [None] * n
-        for idx, q in enumerate(qubits):
-            target[q] = idx
-        for j, r in enumerate(remaining):
-            target[r] = j + 3
-        inv = [0] * n
-        for i, pos in enumerate(target):
-            inv[pos] = i
-        full_perm = inv + list(range(n, 2 * n))
-        rho = np.transpose(rho, full_perm)
-
-        # Contract gate* with col axes
-        col_axes = [q + n for q in qubits]
-        rho = np.tensordot(G8.conj(), rho, axes=[[3, 4, 5], col_axes])
-        remaining2 = [i for i in range(n) if i not in qubits]
-        target2 = [None] * n
-        for idx, q in enumerate(qubits):
-            target2[q] = idx
-        for j, r in enumerate(remaining2):
-            target2[r] = j + 3
-        inv2 = [0] * n
-        for i, pos in enumerate(target2):
-            inv2[pos] = i
-        full_perm2 = list(range(n)) + [x + n for x in inv2]
-        rho = np.transpose(rho, full_perm2)
-
+        rho = _contract_gate_on_rho(G8, rho, qubits, n, k=3)
         self._rho = rho.reshape(self.dim, self.dim)
 
     # ------------------------------------------------------------------

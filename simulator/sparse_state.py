@@ -142,10 +142,7 @@ class SparseStateVector:
         target[qubit2] = 1
         for j, r in enumerate(remaining):
             target[r] = j + 2
-        inv = [0] * self.n_qubits
-        for i, pos in enumerate(target):
-            inv[pos] = i
-        state = np.transpose(state, inv)
+        state = np.transpose(state, target)
         self._dense = state.reshape(self.dim)
 
     def apply_three_qubit_gate(self, gate: np.ndarray, qubit1: int, qubit2: int, qubit3: int) -> None:
@@ -164,10 +161,7 @@ class SparseStateVector:
         target[qubit3] = 2
         for j, r in enumerate(remaining):
             target[r] = j + 3
-        inv = [0] * self.n_qubits
-        for i, pos in enumerate(target):
-            inv[pos] = i
-        state = np.transpose(state, inv)
+        state = np.transpose(state, target)
         self._dense = state.reshape(self.dim)
 
     def probabilities(self) -> np.ndarray:
