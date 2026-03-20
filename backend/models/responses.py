@@ -86,3 +86,15 @@ class SweepResponse(BaseModel):
     algorithm: str
     sweep_parameter: str
     points: List[SweepPoint]
+
+
+class JobSubmittedResponse(BaseModel):
+    job_id: str
+    status: str = "pending"
+
+
+class JobStatusResponse(BaseModel):
+    job_id: str
+    status: str  # "pending", "running", "completed", "failed"
+    result: Optional[SimulationTrace] = None
+    error: Optional[str] = None

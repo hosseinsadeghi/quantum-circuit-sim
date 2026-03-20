@@ -17,3 +17,8 @@ class SweepRequest(BaseModel):
     sweep_values: list
     mode: str = Field(default="statevector")
     noise_config: Optional[Dict[str, Any]] = None
+
+
+class AsyncSimulateRequest(SimulateRequest):
+    """Same as SimulateRequest but returns a job_id for polling."""
+    pass
