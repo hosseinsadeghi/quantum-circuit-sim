@@ -104,10 +104,14 @@ class Executor:
         rng_seed: Optional[int] = None,
         snapshot_config: Optional[SnapshotConfig] = None,
         optimize: bool = False,
+        representation: str = "dense",
     ):
         if mode not in ("statevector", "density_matrix"):
             raise ValueError(f"mode must be 'statevector' or 'density_matrix', got {mode!r}")
+        if representation not in ("dense", "sparse", "auto"):
+            raise ValueError(f"representation must be 'dense', 'sparse', or 'auto', got {representation!r}")
         self.mode = mode
+        self.representation = representation
         self.noise_model = noise_model
         self._rng = np.random.default_rng(rng_seed)
 
@@ -147,13 +151,31 @@ class Executor:
     # Statevector path
     # ------------------------------------------------------------------
 
+    def _use_sparse(self, n_qubits: int) -> bool:
+        """Decide whether to use sparse representation."""
+        if self.representation == "sparse":
+            return True
+        if self.representation == "auto":
+            return n_qubits >= 14
+        return False
+
     def _run_sv(self, circuit: Circuit, clbits: List[int],
                 init_label: Optional[str]) -> ExecutionResult:
         n = circuit.n_qubits
+        use_sparse = self._use_sparse(n)
+
         if circuit.initial_state is not None:
-            sv = StateVector.from_array(circuit.initial_state)
+            if use_sparse:
+                from simulator.sparse_state import SparseStateVector
+                sv = SparseStateVector.from_array(circuit.initial_state)
+            else:
+                sv = StateVector.from_array(circuit.initial_state)
         else:
-            sv = StateVector(n)
+            if use_sparse:
+                from simulator.sparse_state import SparseStateVector
+                sv = SparseStateVector(n)
+            else:
+                sv = StateVector(n)
         steps: List[Dict] = []
         step_assignments: List[int] = []
 
