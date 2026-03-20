@@ -1,22 +1,10 @@
 import numpy as np
 from typing import Any, Dict, List, Optional, Tuple
 from algorithms.base import Algorithm
+from algorithms.qaoa_maxcut import generate_edges
 from simulator.circuit import Circuit
 from simulator.executor import Executor
 from simulator.noise import NoiseModel
-
-GRAPH_EDGES: Dict[str, Dict[int, List[Tuple[int, int]]]] = {
-    "cycle": {
-        4: [(0, 1), (1, 2), (2, 3), (3, 0)],
-        6: [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0)],
-    },
-    "complete": {
-        4: [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-    },
-    "path": {
-        4: [(0, 1), (1, 2), (2, 3)],
-    },
-}
 
 # Precomputed ADAPT-QAOA results: which operators were selected and their
 # optimized parameters. Format: list of (gate_name, qubit_targets, angle).
@@ -68,9 +56,10 @@ class ADAPTQAOAAlgorithm(Algorithm):
         "properties": {
             "n_qubits": {
                 "type": "integer",
-                "enum": [4, 6],
+                "minimum": 4,
+                "maximum": 14,
                 "default": 4,
-                "description": "Number of qubits / graph vertices",
+                "description": "Number of qubits / graph vertices (4–14)",
             },
             "n_adapt_steps": {
                 "type": "integer",
@@ -96,7 +85,7 @@ class ADAPTQAOAAlgorithm(Algorithm):
         n_adapt_steps: int = int(parameters["n_adapt_steps"])
         topology: str = parameters["topology"]
 
-        edges = GRAPH_EDGES[topology][n_qubits]
+        edges = generate_edges(topology, n_qubits)
         key = (topology, n_qubits, n_adapt_steps)
 
         if key in PRECOMPUTED_ADAPT:

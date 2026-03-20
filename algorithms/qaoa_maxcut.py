@@ -6,7 +6,45 @@ from simulator.executor import Executor
 from simulator.noise import NoiseModel
 from simulator import gates as G
 
-# Precomputed optimal (gamma, beta) angles for p=1,2,3 on small graph topologies
+
+def generate_edges(topology: str, n: int) -> List[Tuple[int, int]]:
+    """Generate graph edges for a given topology and vertex count."""
+    if topology == "cycle":
+        return [(i, (i + 1) % n) for i in range(n)]
+    elif topology == "complete":
+        return [(i, j) for i in range(n) for j in range(i + 1, n)]
+    elif topology == "path":
+        return [(i, i + 1) for i in range(n - 1)]
+    else:
+        raise ValueError(f"Unknown topology: {topology!r}")
+
+
+def generate_angles(topology: str, p_layers: int, n_edges: int) -> List[Tuple[float, float]]:
+    """Generate QAOA angles using analytical initialization.
+
+    For p=1: uses optimal Farhi et al. angles.
+    For higher p: uses INTERP strategy (linearly interpolated from p=1).
+    """
+    # Optimal p=1 angles per topology (Farhi et al.)
+    base_angles = {
+        "cycle": (np.pi / 4, np.pi / 8),
+        "complete": (np.pi / 4, np.pi / 8),
+        "path": (np.pi / 4, np.pi / 8),
+    }
+    gamma_1, beta_1 = base_angles.get(topology, (np.pi / 4, np.pi / 8))
+
+    if p_layers == 1:
+        return [(gamma_1, beta_1)]
+
+    # INTERP strategy: linearly ramp angles across layers
+    angles = []
+    for k in range(p_layers):
+        t = (k + 1) / p_layers
+        angles.append((gamma_1 * t, beta_1 * t))
+    return angles
+
+
+# Legacy precomputed angles for backward compatibility at small sizes
 PRECOMPUTED_ANGLES: Dict[str, Dict[int, List[Tuple[float, float]]]] = {
     "cycle": {
         1: [(np.pi / 4, np.pi / 8)],
@@ -25,21 +63,6 @@ PRECOMPUTED_ANGLES: Dict[str, Dict[int, List[Tuple[float, float]]]] = {
     },
 }
 
-GRAPH_EDGES: Dict[str, Dict[int, List[Tuple[int, int]]]] = {
-    "cycle": {
-        4: [(0, 1), (1, 2), (2, 3), (3, 0)],
-        6: [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0)],
-    },
-    "complete": {
-        4: [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-        6: [(i, j) for i in range(6) for j in range(i + 1, 6)],
-    },
-    "path": {
-        4: [(0, 1), (1, 2), (2, 3)],
-        6: [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)],
-    },
-}
-
 
 class QAOAMaxCutAlgorithm(Algorithm):
     algorithm_id = "qaoa_maxcut"
@@ -55,9 +78,10 @@ class QAOAMaxCutAlgorithm(Algorithm):
         "properties": {
             "n_qubits": {
                 "type": "integer",
-                "enum": [4, 6],
+                "minimum": 4,
+                "maximum": 14,
                 "default": 4,
-                "description": "Number of qubits / graph vertices (4 or 6)",
+                "description": "Number of qubits / graph vertices (4–14)",
             },
             "p_layers": {
                 "type": "integer",
@@ -83,8 +107,13 @@ class QAOAMaxCutAlgorithm(Algorithm):
         p_layers: int = int(parameters["p_layers"])
         topology: str = parameters["topology"]
 
-        edges = GRAPH_EDGES[topology][n_qubits]
-        angle_layers = PRECOMPUTED_ANGLES[topology][p_layers]
+        edges = generate_edges(topology, n_qubits)
+
+        # Use precomputed angles if available, otherwise generate analytically
+        if topology in PRECOMPUTED_ANGLES and p_layers in PRECOMPUTED_ANGLES[topology]:
+            angle_layers = PRECOMPUTED_ANGLES[topology][p_layers]
+        else:
+            angle_layers = generate_angles(topology, p_layers, len(edges))
 
         circ = Circuit(n_qubits=n_qubits)
 

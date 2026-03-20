@@ -1,12 +1,13 @@
 import numpy as np
 from typing import Any, Dict, List, Optional, Tuple
 from algorithms.base import Algorithm
+from algorithms.qaoa_maxcut import generate_edges
 from simulator.circuit import Circuit
 from simulator.executor import Executor
 from simulator.noise import NoiseModel
 
 # Precomputed per-edge gamma and per-qubit beta angles for small instances.
-# Keys: (topology, n_qubits, p_layers) → list of (gamma_per_edge, beta_per_qubit) per layer.
+# Keys: (topology, n_qubits, p_layers) -> list of (gamma_per_edge, beta_per_qubit) per layer.
 # These were obtained via classical optimization of the MA-QAOA cost function.
 PRECOMPUTED_MA_ANGLES: Dict[Tuple[str, int, int], List[Tuple[List[float], List[float]]]] = {
     ("cycle", 4, 1): [
@@ -29,21 +30,6 @@ PRECOMPUTED_MA_ANGLES: Dict[Tuple[str, int, int], List[Tuple[List[float], List[f
     ],
 }
 
-GRAPH_EDGES: Dict[str, Dict[int, List[Tuple[int, int]]]] = {
-    "cycle": {
-        4: [(0, 1), (1, 2), (2, 3), (3, 0)],
-        6: [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0)],
-    },
-    "complete": {
-        4: [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-        6: [(i, j) for i in range(6) for j in range(i + 1, 6)],
-    },
-    "path": {
-        4: [(0, 1), (1, 2), (2, 3)],
-        6: [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)],
-    },
-}
-
 
 class MAQAOAAlgorithm(Algorithm):
     algorithm_id = "ma_qaoa"
@@ -59,9 +45,10 @@ class MAQAOAAlgorithm(Algorithm):
         "properties": {
             "n_qubits": {
                 "type": "integer",
-                "enum": [4, 6],
+                "minimum": 4,
+                "maximum": 14,
                 "default": 4,
-                "description": "Number of qubits / graph vertices",
+                "description": "Number of qubits / graph vertices (4–14)",
             },
             "p_layers": {
                 "type": "integer",
@@ -87,7 +74,7 @@ class MAQAOAAlgorithm(Algorithm):
         p_layers: int = int(parameters["p_layers"])
         topology: str = parameters["topology"]
 
-        edges = GRAPH_EDGES[topology][n_qubits]
+        edges = generate_edges(topology, n_qubits)
         key = (topology, n_qubits, p_layers)
 
         if key in PRECOMPUTED_MA_ANGLES:
