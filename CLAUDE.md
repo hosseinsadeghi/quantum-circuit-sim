@@ -20,27 +20,33 @@ This file provides guidance to Claude Code when working with this repository.
 ## Architecture
 
 ```
-simulator/          # Pure NumPy quantum simulation engine
-  gates.py          # Gate matrices (H, X, CNOT, Rx, Rz, ...)
-  state_vector.py   # StateVector class (statevector simulation)
-  circuit.py        # Circuit IR — algorithms emit ops here; Executor runs them
-  executor.py       # Runs Circuit in statevector or density_matrix mode
-  density_matrix.py # Density matrix simulation (noise, mixed states)
-  noise.py          # Kraus noise channels (depolarizing, amplitude damping, ...)
-  observables.py    # Per-step Bloch vectors, entropy, purity
-  tracer.py         # Legacy snapshot helper (still used by executor internally)
+simulator/                # NumPy quantum simulation engine (GPU-ready via backend abstraction)
+  gates.py                # Gate matrices (H, X, CNOT, Rx, Rz, CCX, CCZ, ...)
+  state_vector.py         # StateVector class (statevector simulation)
+  density_matrix.py       # DensityMatrix — tensor contraction (O(2^2n) per gate)
+  circuit.py              # Circuit IR — algorithms emit ops; Executor runs them
+  circuit_optimizer.py    # Gate fusion, identity cancellation, commutation reordering
+  executor.py             # Runs Circuit; SnapshotConfig controls serialization
+  sparse_state.py         # SparseStateVector — dict-based, auto-densify at 25%
+  array_backend.py        # ArrayBackend ABC; NumpyBackend + CupyBackend (GPU)
+  noise.py                # Kraus noise channels (depolarizing, amplitude damping, ...)
+  observables.py          # O(n·2^n) Bloch/entropy from SV; O(2^2n) from DM
+  tracer.py               # Legacy snapshot helper
 
-algorithms/         # Algorithm implementations (all use Circuit IR + Executor)
-  base.py           # Abstract Algorithm class
-  bell_state.py, grover.py, qaoa_maxcut.py
-  deutsch_jozsa.py, bernstein_vazirani.py, qft.py, phase_estimation.py
-  ghz.py, teleportation.py, ising_evolution.py, rabi.py, vqe.py
-  error_correction.py
+algorithms/               # 15 algorithm implementations (all use Circuit IR + Executor)
+  base.py                 # Abstract Algorithm class
+  bell_state.py, ghz.py (→16q), grover.py (→12q), qft.py (→14q)
+  deutsch_jozsa.py (→12q), bernstein_vazirani.py (→14q), phase_estimation.py (→10q)
+  qaoa_maxcut.py (→14q), ma_qaoa.py (→14q), adapt_qaoa.py (→14q)
+  teleportation.py, ising_evolution.py (→10q), rabi.py, vqe.py, error_correction.py
 
-backend/            # FastAPI micro-service (port 8001)
-  main.py           # App entry point, CORS, router mount
-  api/simulation.py # POST /api/simulate, GET /api/algorithms, POST /api/sweep
-  models/           # Pydantic v2 request/response models
+backend/                  # FastAPI micro-service (port 8001)
+  main.py                 # App entry point, CORS, router mount
+  api/simulation.py       # /simulate, /simulate/async, /simulate/stream (WS), /sweep
+  models/                 # Pydantic v2 request/response models
+
+benchmarks/               # Performance measurement suite
+  bench_scaling.py        # Random/QFT/Grover/GHZ at varying qubit counts
 
 frontend/           # React 19 + Vite app (served by Express on port 3000)
   src/
@@ -63,8 +69,16 @@ docker-compose.yml  # backend + frontend services; backend health-checked before
 
 ## Simulation modes
 
-- `statevector` (default) — fast, exact, pure states only
-- `density_matrix` — supports noise; automatically selected when a `noise_config` is provided
+- `statevector` (default) — fast, exact, pure states only (16-18 qubits comfortable)
+- `density_matrix` — supports noise; auto-selected with `noise_config` (10-12 qubits)
+- `representation`: `"dense"` (default), `"sparse"` (dict-based), `"auto"` (sparse for n≥14)
+- `optimize: true` — run circuit optimization passes before execution
+- `backend`: `"numpy"` (default) or `"cupy"` (GPU, requires `cupy-cuda12x`)
+
+## Async & streaming
+
+- `POST /api/simulate/async` → returns `job_id`, poll via `GET /api/simulate/job/{id}`
+- `WS /api/simulate/stream` → streams steps over WebSocket
 
 ## Git workflow
 
@@ -88,11 +102,13 @@ docker-compose.yml  # backend + frontend services; backend health-checked before
 2. Add tests in `tests/`
 3. Run `uv run pytest tests/ -q`; commit when green
 
-## Testing
+## Testing & benchmarking
 
 ```
-uv run pytest tests/ -q       # all tests
-uv run pytest tests/test_executor.py -q   # specific module
+uv run pytest tests/ -q                           # all tests (121 tests)
+uv run pytest tests/test_executor.py -q            # specific module
+uv run pytest tests/test_scaling.py -q             # scaling roadmap tests
+python benchmarks/bench_scaling.py --max-qubits 14 # performance benchmarks
 ```
 
 All NumPy arrays must be serialized via `.tolist()` before leaving the backend — the Executor handles this automatically.
