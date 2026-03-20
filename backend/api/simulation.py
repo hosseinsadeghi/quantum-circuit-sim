@@ -16,6 +16,8 @@ from algorithms.ising_evolution import IsingEvolutionAlgorithm
 from algorithms.rabi import RabiAlgorithm
 from algorithms.vqe import VQEAlgorithm
 from algorithms.error_correction import ErrorCorrectionAlgorithm
+from algorithms.ma_qaoa import MAQAOAAlgorithm
+from algorithms.adapt_qaoa import ADAPTQAOAAlgorithm
 import json
 
 router = APIRouter()
@@ -36,6 +38,8 @@ ALGORITHMS = {
         IsingEvolutionAlgorithm(),
         RabiAlgorithm(),
         ErrorCorrectionAlgorithm(),
+        MAQAOAAlgorithm(),
+        ADAPTQAOAAlgorithm(),
     ]
 }
 
@@ -64,7 +68,8 @@ async def simulate(request: SimulateRequest):
 
     try:
         result = alg.run(request.parameters, mode=request.mode,
-                         noise_config=request.noise_config)
+                         noise_config=request.noise_config,
+                         optimize=request.optimize)
     except (ValueError, KeyError) as e:
         raise HTTPException(status_code=400, detail=str(e))
 

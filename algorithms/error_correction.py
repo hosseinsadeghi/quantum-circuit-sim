@@ -48,7 +48,8 @@ class ErrorCorrectionAlgorithm(Algorithm):
     }
 
     def run(self, parameters: Dict[str, Any], mode: str = "statevector",
-            noise_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+            noise_config: Optional[Dict[str, Any]] = None,
+            optimize: bool = False) -> Dict[str, Any]:
         angle: float = float(parameters["state_angle"])
         error_qubit: int = int(parameters["error_qubit"])
 
@@ -107,6 +108,6 @@ class ErrorCorrectionAlgorithm(Algorithm):
         circ.cnot(0, 1, "Decode: CNOT q0→q1")
 
         noise_model = NoiseModel.from_config(noise_config) if noise_config else None
-        executor = Executor(mode=mode, noise_model=noise_model)
+        executor = Executor(mode=mode, noise_model=noise_model, optimize=optimize)
         result = executor.run(circ, init_label="Initialize |00000⟩")
         return result.to_trace_dict(self.algorithm_id, parameters)

@@ -35,7 +35,8 @@ class BernsteinVaziraniAlgorithm(Algorithm):
     }
 
     def run(self, parameters: Dict[str, Any], mode: str = "statevector",
-            noise_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+            noise_config: Optional[Dict[str, Any]] = None,
+            optimize: bool = False) -> Dict[str, Any]:
         s: str = str(parameters["secret_string"])
         if not all(c in "01" for c in s):
             raise ValueError("secret_string must contain only '0' and '1'")
@@ -66,6 +67,6 @@ class BernsteinVaziraniAlgorithm(Algorithm):
             circ.h(q, f"Apply H to q{q} — extract secret bit")
 
         noise_model = NoiseModel.from_config(noise_config) if noise_config else None
-        executor = Executor(mode=mode, noise_model=noise_model)
+        executor = Executor(mode=mode, noise_model=noise_model, optimize=optimize)
         result = executor.run(circ, init_label=f"Initialize |{'0'*total}⟩")
         return result.to_trace_dict(self.algorithm_id, parameters)

@@ -11,5 +11,6 @@ class Algorithm(ABC):
 
     @abstractmethod
     def run(self, parameters: Dict[str, Any], mode: str = "statevector",
-            noise_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+            noise_config: Optional[Dict[str, Any]] = None,
+            optimize: bool = False) -> Dict[str, Any]:
         ...

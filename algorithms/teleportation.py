@@ -45,7 +45,8 @@ class TeleportationAlgorithm(Algorithm):
     }
 
     def run(self, parameters: Dict[str, Any], mode: str = "statevector",
-            noise_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+            noise_config: Optional[Dict[str, Any]] = None,
+            optimize: bool = False) -> Dict[str, Any]:
         angle: float = float(parameters["state_angle"])
 
         # 3 qubits: q0=Alice's state, q1=Alice's Bell qubit, q2=Bob's qubit
@@ -84,6 +85,6 @@ class TeleportationAlgorithm(Algorithm):
                                label="Bob: if c0==1 apply Z to q2")
 
         noise_model = NoiseModel.from_config(noise_config) if noise_config else None
-        executor = Executor(mode=mode, noise_model=noise_model)
+        executor = Executor(mode=mode, noise_model=noise_model, optimize=optimize)
         result = executor.run(circ, init_label="Initialize |000⟩")
         return result.to_trace_dict(self.algorithm_id, parameters)

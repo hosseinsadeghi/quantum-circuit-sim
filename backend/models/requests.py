@@ -7,6 +7,7 @@ class SimulateRequest(BaseModel):
     parameters: Dict[str, Any] = Field(default_factory=dict, description="Algorithm parameters")
     mode: str = Field(default="statevector", description="Simulation mode: statevector or density_matrix")
     noise_config: Optional[Dict[str, Any]] = Field(default=None, description="Noise model configuration")
+    optimize: bool = Field(default=False, description="Run circuit optimization passes before execution")
 
 
 class SweepRequest(BaseModel):

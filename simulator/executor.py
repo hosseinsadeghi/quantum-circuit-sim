@@ -103,6 +103,7 @@ class Executor:
         include_observables: bool = True,
         rng_seed: Optional[int] = None,
         snapshot_config: Optional[SnapshotConfig] = None,
+        optimize: bool = False,
     ):
         if mode not in ("statevector", "density_matrix"):
             raise ValueError(f"mode must be 'statevector' or 'density_matrix', got {mode!r}")
@@ -121,12 +122,18 @@ class Executor:
         # Backward-compat alias
         self.include_observables = self.snapshot_config.include_observables
 
+        self.optimize = optimize
+
         # Force density_matrix mode when noise is enabled
         if noise_model is not None and noise_model.is_noisy():
             self.mode = "density_matrix"
 
     def run(self, circuit: Circuit, init_label: Optional[str] = None) -> ExecutionResult:
         """Execute a Circuit and return an ExecutionResult."""
+        if self.optimize:
+            from simulator.circuit_optimizer import CircuitOptimizer
+            circuit = CircuitOptimizer().optimize(circuit)
+
         n = circuit.n_qubits
         n_clbits = circuit.n_clbits
         clbits: List[int] = [0] * max(n_clbits, 1)

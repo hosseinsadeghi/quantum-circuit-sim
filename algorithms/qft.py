@@ -42,7 +42,8 @@ class QFTAlgorithm(Algorithm):
     }
 
     def run(self, parameters: Dict[str, Any], mode: str = "statevector",
-            noise_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+            noise_config: Optional[Dict[str, Any]] = None,
+            optimize: bool = False) -> Dict[str, Any]:
         n: int = int(parameters["n_qubits"])
         input_state: str = parameters["input_state"]
 
@@ -79,7 +80,7 @@ class QFTAlgorithm(Algorithm):
         circ.barrier(*range(n), label="QFT ends")
 
         noise_model = NoiseModel.from_config(noise_config) if noise_config else None
-        executor = Executor(mode=mode, noise_model=noise_model)
+        executor = Executor(mode=mode, noise_model=noise_model, optimize=optimize)
         result = executor.run(circ, init_label=f"Initialize |{'0'*n}⟩")
         return result.to_trace_dict(self.algorithm_id, parameters)
 

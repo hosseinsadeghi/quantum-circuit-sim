@@ -44,7 +44,8 @@ class RabiAlgorithm(Algorithm):
     }
 
     def run(self, parameters: Dict[str, Any], mode: str = "statevector",
-            noise_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+            noise_config: Optional[Dict[str, Any]] = None,
+            optimize: bool = False) -> Dict[str, Any]:
         n_steps: int = int(parameters["n_steps"])
         omega_dt: float = float(parameters["omega_dt"])
 
@@ -55,6 +56,6 @@ class RabiAlgorithm(Algorithm):
                     f"Step {step+1}: Rx({omega_dt:.3f}) — Rabi drive")
 
         noise_model = NoiseModel.from_config(noise_config) if noise_config else None
-        executor = Executor(mode=mode, noise_model=noise_model)
+        executor = Executor(mode=mode, noise_model=noise_model, optimize=optimize)
         result = executor.run(circ, init_label="Initialize |0⟩")
         return result.to_trace_dict(self.algorithm_id, parameters)
