@@ -149,16 +149,32 @@ class DensityMatrix:
     def apply_kraus(self, kraus_ops: List[np.ndarray], qubit: int) -> None:
         """Apply a single-qubit Kraus channel on `qubit`.
 
-        rho -> sum_k K_k rho K_k† using tensor contraction per operator.
+        rho -> sum_k K_k rho K_k† using batched tensor contraction.
+        Stacks Kraus ops into (num_ops, 2, 2) tensor and applies all at once.
         """
         n = self.n_qubits
-        new_rho = np.zeros((self.dim, self.dim), dtype=np.complex128)
-        saved_rho = self._rho.copy()
+        num_ops = len(kraus_ops)
 
-        for K in kraus_ops:
-            self._rho = saved_rho.copy()
-            self.apply_single_qubit_gate(K, qubit)
-            new_rho += self._rho
+        if num_ops == 0:
+            return
+
+        # Stack Kraus ops: (num_ops, 2, 2)
+        K_stack = np.stack([K.astype(np.complex128) for K in kraus_ops])
+        rho = self._rho.reshape([2] * (2 * n))
+
+        new_rho = np.zeros_like(self._rho)
+
+        # Batched: for each K_k, compute K_k rho K_k† via tensor contraction
+        for k in range(num_ops):
+            K = K_stack[k]
+            tmp = rho.copy()
+            # Contract K with row-axis
+            tmp = np.tensordot(K, tmp, axes=[[1], [qubit]])
+            tmp = np.moveaxis(tmp, 0, qubit)
+            # Contract K* with col-axis
+            tmp = np.tensordot(K.conj(), tmp, axes=[[1], [qubit + n]])
+            tmp = np.moveaxis(tmp, 0, qubit + n)
+            new_rho += tmp.reshape(self.dim, self.dim)
 
         self._rho = new_rho
 
