@@ -31,10 +31,15 @@ class SnapshotConfig:
         include_state_vector: Whether to serialize full state vector/DM data.
         include_observables: Whether to compute observables (Bloch, entropy, etc.).
         observable_interval: Compute observables every N steps (1 = every step).
+        checkpoint_interval: Keep only every Nth step's full data (0 = keep all).
+        top_k_amplitudes: If > 0, only store the top-k amplitudes per step
+            instead of the full state vector. Saves memory for large circuits.
     """
     include_state_vector: bool = True
     include_observables: bool = True
     observable_interval: int = 1
+    checkpoint_interval: int = 0
+    top_k_amplitudes: int = 0
 
 
 class ExecutionResult:
@@ -287,6 +292,14 @@ class Executor:
     def _sv_snapshot(self, sv: StateVector, step_index: int, label: str,
                      gate: Optional[str], qubits: List[int]) -> Dict:
         cfg = self.snapshot_config
+
+        # Checkpoint mode: skip full data for non-checkpoint steps
+        is_checkpoint = (
+            cfg.checkpoint_interval == 0
+            or step_index == 0
+            or step_index % cfg.checkpoint_interval == 0
+        )
+
         step: Dict[str, Any] = {
             "step_index": step_index,
             "label": label,
@@ -295,14 +308,19 @@ class Executor:
             "probabilities": sv.probabilities_list(),
             "basis_labels": sv.basis_labels(),
         }
-        if cfg.include_state_vector:
-            step["state_vector"] = {
-                "real": sv.state_real(),
-                "imag": sv.state_imag(),
-            }
+
+        if cfg.include_state_vector and is_checkpoint:
+            if cfg.top_k_amplitudes > 0:
+                step["state_vector"] = _top_k_sv(sv, cfg.top_k_amplitudes)
+            else:
+                step["state_vector"] = {
+                    "real": sv.state_real(),
+                    "imag": sv.state_imag(),
+                }
         else:
             step["state_vector"] = {"real": [], "imag": []}
-        if cfg.include_observables and (
+
+        if cfg.include_observables and is_checkpoint and (
             step_index % cfg.observable_interval == 0
             or step_index == 0
         ):
@@ -461,6 +479,13 @@ class Executor:
     def _dm_snapshot(self, dm: DensityMatrix, step_index: int, label: str,
                      gate: Optional[str], qubits: List[int]) -> Dict:
         cfg = self.snapshot_config
+
+        is_checkpoint = (
+            cfg.checkpoint_interval == 0
+            or step_index == 0
+            or step_index % cfg.checkpoint_interval == 0
+        )
+
         step: Dict[str, Any] = {
             "step_index": step_index,
             "label": label,
@@ -469,14 +494,14 @@ class Executor:
             "probabilities": dm.probabilities(),
             "basis_labels": dm.basis_labels(),
         }
-        if cfg.include_state_vector:
+        if cfg.include_state_vector and is_checkpoint:
             step["state_vector"] = {
                 "real": dm.probabilities(),   # use probs for SV compat
                 "imag": [0.0] * dm.dim,
             }
         else:
             step["state_vector"] = {"real": [], "imag": []}
-        if cfg.include_observables and (
+        if cfg.include_observables and is_checkpoint and (
             step_index % cfg.observable_interval == 0
             or step_index == 0
         ):
@@ -518,6 +543,22 @@ class Executor:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _top_k_sv(sv, k: int) -> Dict:
+    """Return top-k amplitudes by magnitude, compressed into sparse format."""
+    state = sv._state
+    probs = np.abs(state) ** 2
+    if k >= len(state):
+        return {"real": sv.state_real(), "imag": sv.state_imag()}
+    top_indices = np.argpartition(probs, -k)[-k:]
+    top_indices = top_indices[np.argsort(-probs[top_indices])]
+    real = [0.0] * len(state)
+    imag = [0.0] * len(state)
+    for idx in top_indices:
+        real[idx] = float(state[idx].real)
+        imag[idx] = float(state[idx].imag)
+    return {"real": real, "imag": imag}
+
 
 def _op_name(op) -> Optional[str]:
     if isinstance(op, GateOp):
